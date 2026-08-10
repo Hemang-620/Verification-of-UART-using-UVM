@@ -16,3 +16,6 @@ sim/*.log
 
 # Archived local copies; source remains under the directories above
 rtl.zip
+
+# Locally installed developer tooling
+.tools/
