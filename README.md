@@ -1,4 +1,4 @@
-# APB UART Core
+# Verification of UART Using UVM
 
 An RTL implementation of an APB-attached UART, accompanied by a SystemVerilog/UVM verification environment.
 
