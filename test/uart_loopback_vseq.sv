@@ -7,12 +7,13 @@ class uart_loopback_vseq extends base_virtual_sequence;
   endfunction
 
 
- task automatic send_and_check(
+task automatic send_and_check(
     input bit [7:0] tx_data
 );
 
     uvm_status_e   status;
     uvm_reg_data_t rd_data;
+    bit [7:0]      expected_data;
 
     //-------------------------------------------------------
     // Write UARTDR (starts DUT transmission)
@@ -38,21 +39,84 @@ class uart_loopback_vseq extends base_virtual_sequence;
     p_sequencer.ral_h.UARTDR.read(status, rd_data);
 
     //-------------------------------------------------------
+    // Calculate expected RX data
+    //-------------------------------------------------------
+
+    expected_data = get_expected_data(
+        tx_data,
+        p_sequencer.uart_cfg_h.wlen
+    );
+
+    //-------------------------------------------------------
     // Compare
     //-------------------------------------------------------
 
-    if(rd_data[7:0] != tx_data)
-      `uvm_error(get_type_name(),
-        $sformatf("LOOPBACK FAILED  TX=%02h  RX=%02h",
-                  tx_data,
-                  rd_data[7:0]))
-    else
+    if(rd_data[7:0] == expected_data) begin
+
       `uvm_info(get_type_name(),
-        $sformatf("LOOPBACK PASS  DATA=%02h",
-                  tx_data),
-        UVM_LOW);
+        $sformatf(
+          "LOOPBACK PASS  TX=%02h RX=%02h EXPECTED=%02h",
+          tx_data,
+          rd_data[7:0],
+          expected_data
+        ),
+        UVM_LOW
+      )
+
+    end
+    else begin
+
+      `uvm_error(get_type_name(),
+        $sformatf(
+          "LOOPBACK FAILED  TX=%02h RX=%02h EXPECTED=%02h",
+          tx_data,
+          rd_data[7:0],
+          expected_data
+        )
+      )
+
+    end
 
 endtask
+
+//------------------------------------------------------------
+// Calculate expected RX data according to word length
+//------------------------------------------------------------
+
+function automatic bit [7:0] get_expected_data(
+    input bit [7:0] data,
+    input bit [1:0] wlen
+);
+
+    case (wlen)
+
+        2'b00: begin
+            // 5-bit mode
+            get_expected_data = data & 8'h1F;
+        end
+
+        2'b01: begin
+            // 6-bit mode
+            get_expected_data = data & 8'h3F;
+        end
+
+        2'b10: begin
+            // 7-bit mode
+            get_expected_data = data & 8'h7F;
+        end
+
+        2'b11: begin
+            // 8-bit mode
+            get_expected_data = data;
+        end
+
+        default: begin
+            get_expected_data = data;
+        end
+
+    endcase
+
+endfunction
 
 
   task body();

@@ -32,8 +32,20 @@ class uart_base_monitor extends uvm_monitor;
 
   task run_phase(uvm_phase phase);
 
-    forever
+    forever begin
+      wait_for_reset_release();
       collect_frame();
+    end
+
+  endtask
+
+   task wait_for_reset_release();
+
+    while(uart_vif.PRESETn == 1'b0) begin
+
+      @(posedge uart_vif.PCLK);
+
+    end
 
   endtask
 
@@ -43,6 +55,7 @@ class uart_base_monitor extends uvm_monitor;
   //-------------------------------------------------------
 
   virtual function bit sample_line();
+  return 1'b1;
 
   endfunction
 
