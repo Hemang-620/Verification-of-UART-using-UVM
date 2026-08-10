@@ -94,6 +94,112 @@ class uart_scoreboard extends uvm_scoreboard;
   //----------------------------------------------------------
   // Compare
   //----------------------------------------------------------
+  function bit compare_uart_frame(
+      uart_seq_item tx,
+      uart_seq_item rx
+  );
+
+    bit match;
+
+    match = 1'b1;
+
+    //--------------------------------------------------------
+    // DATA
+    //--------------------------------------------------------
+
+    if(tx.data != rx.data)
+    begin
+
+      `uvm_error(get_type_name(),
+        $sformatf(
+          "DATA MISMATCH : TX = %02h  RX = %02h",
+          tx.data,
+          rx.data))
+
+      match = 1'b0;
+
+    end
+
+
+    //--------------------------------------------------------
+    // WORD LENGTH
+    //--------------------------------------------------------
+
+    if(tx.wlen != rx.wlen)
+    begin
+
+      `uvm_error(get_type_name(),
+        $sformatf(
+          "WLEN MISMATCH : TX = %0d  RX = %0d",
+          tx.wlen,
+          rx.wlen))
+
+      match = 1'b0;
+
+    end
+
+
+    //--------------------------------------------------------
+    // PARITY ENABLE
+    //--------------------------------------------------------
+
+    if(tx.parity_en != rx.parity_en)
+    begin
+
+      `uvm_error(get_type_name(),
+        $sformatf(
+          "PARITY ENABLE MISMATCH : TX = %0b  RX = %0b",
+          tx.parity_en,
+          rx.parity_en))
+
+      match = 1'b0;
+
+    end
+
+
+    //--------------------------------------------------------
+    // PARITY TYPE
+    //--------------------------------------------------------
+
+    if(tx.even_parity != rx.even_parity)
+    begin
+
+      `uvm_error(get_type_name(),
+        $sformatf(
+          "PARITY TYPE MISMATCH : TX = %0b  RX = %0b",
+          tx.even_parity,
+          rx.even_parity))
+
+      match = 1'b0;
+
+    end
+
+
+    //--------------------------------------------------------
+    // STOP BITS
+    //--------------------------------------------------------
+
+    if(tx.stop2 != rx.stop2)
+    begin
+
+      `uvm_error(get_type_name(),
+        $sformatf(
+          "STOP BIT MISMATCH : TX = %0b  RX = %0b",
+          tx.stop2,
+          rx.stop2))
+
+      match = 1'b0;
+
+    end
+
+
+    //--------------------------------------------------------
+    // Return Result
+    //--------------------------------------------------------
+
+    return match;
+
+  endfunction
 
   function void compare_frames();
 
@@ -115,34 +221,42 @@ class uart_scoreboard extends uvm_scoreboard;
 
     //------------------------------------------------------
 
-    if(tx_xtn.compare(rx_xtn))
+     if(compare_uart_frame(tx_xtn,rx_xtn))
     begin
 
       pass_count++;
 
       `uvm_info(get_type_name(),
-      $sformatf(
-      "\nLOOPBACK PASS\nTX = %02h\nRX = %02h",
-      tx_xtn.data,
-      rx_xtn.data),
-      UVM_LOW);
+        $sformatf(
+          "\n========================================\n"
+          "         UART LOOPBACK PASS\n"
+          "----------------------------------------\n"
+          "DATA         : %02h\n"
+          "WLEN         : %0d\n"
+          "PARITY_EN    : %0b\n"
+          "EVEN_PARITY  : %0b\n"
+          "STOP2        : %0b\n"
+          "========================================",
+          tx_xtn.data,
+          tx_xtn.wlen,
+          tx_xtn.parity_en,
+          tx_xtn.even_parity,
+          tx_xtn.stop2),
+        UVM_LOW)
 
     end
-
     else
     begin
 
       fail_count++;
 
       `uvm_error(get_type_name(),
-      $sformatf(
-      "\nLOOPBACK FAIL\nTX = %02h\nRX = %02h",
-      tx_xtn.data,
-      rx_xtn.data));
+        "UART LOOPBACK FRAME COMPARISON FAILED")
 
     end
 
   endfunction
+
 
   //----------------------------------------------------------
   // Report
@@ -153,15 +267,20 @@ class uart_scoreboard extends uvm_scoreboard;
     super.report_phase(phase);
 
     `uvm_info(get_type_name(),
-      $sformatf("\n======================================\n\
-UART SCOREBOARD SUMMARY\n\
---------------------------------------\n\
-PASS = %0d\n\
-FAIL = %0d\n\
-======================================",
-      pass_count,
-      fail_count),
-      UVM_NONE);
+      $sformatf(
+        "\n========================================\n"
+        "       UART SCOREBOARD SUMMARY\n"
+        "----------------------------------------\n"
+        "LOOPBACK PASS : %0d\n"
+        "LOOPBACK FAIL : %0d\n"
+        "TX QUEUE      : %0d\n"
+        "RX QUEUE      : %0d\n"
+        "========================================",
+        pass_count,
+        fail_count,
+        tx_q.size(),
+        rx_q.size()),
+      UVM_NONE)
 
   endfunction
 

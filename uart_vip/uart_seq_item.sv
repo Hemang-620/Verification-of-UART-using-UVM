@@ -26,7 +26,6 @@ class uart_seq_item extends uvm_sequence_item;
     `uvm_field_int(parity_en   , UVM_ALL_ON)
     `uvm_field_int(even_parity , UVM_ALL_ON)
     `uvm_field_int(stop2       , UVM_ALL_ON)
-
     `uvm_field_int(parity_bit  , UVM_ALL_ON)
     `uvm_field_int(stop_bit1   , UVM_ALL_ON)
     `uvm_field_int(stop_bit2   , UVM_ALL_ON)

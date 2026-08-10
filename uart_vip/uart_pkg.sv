@@ -11,7 +11,11 @@ package uart_pkg;
 
   `include "uart_driver.sv"
 
-  `include "uart_monitor.sv"
+  `include "uart_base_monitor.sv"
+
+  `include "uart_tx_monitor.sv"
+
+  `include "uart_rx_monitor.sv"
 
   `include "uart_agent.sv"
 

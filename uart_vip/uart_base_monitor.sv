@@ -1,5 +1,7 @@
 class uart_base_monitor extends uvm_monitor;
 
+`uvm_component_utils(uart_base_monitor)
+
   uart_cfg cfg_h;
 
   virtual uart_if uart_vif;
@@ -62,6 +64,10 @@ class uart_base_monitor extends uvm_monitor;
 
     repeat(cfg_h.cycles_per_bit/2)
       @(posedge uart_vif.PCLK);
+    
+    if(sample_line() != 1'b0)
+
+      `uvm_warning("UART_MON","False start bit detected");
 
   endtask
 
@@ -123,6 +129,8 @@ class uart_base_monitor extends uvm_monitor;
 
       xtn.data[i]=sample_line();
 
+       `uvm_info("UART_MON",$sformatf("Sampled DATA[%0d] = %0b",i,sample_line()),UVM_HIGH);
+
       repeat(cfg_h.cycles_per_bit)
         @(posedge uart_vif.PCLK);
 
@@ -140,6 +148,8 @@ class uart_base_monitor extends uvm_monitor;
     repeat(cfg_h.cycles_per_bit)
       @(posedge uart_vif.PCLK);
 
+      xtn.parity_bit = sample_line();
+      `uvm_info("UART_MON",$sformatf("Sampled PARITY = %0b",xtn.parity_bit),UVM_HIGH);
   endtask
 
 
@@ -152,10 +162,21 @@ class uart_base_monitor extends uvm_monitor;
     repeat(cfg_h.cycles_per_bit)
       @(posedge uart_vif.PCLK);
 
-    if(cfg_h.stop2)
+      xtn.stop_bit1 = sample_line();
+      `uvm_info("UART_MON",$sformatf("Sampled STOP[0] = %0b",xtn.stop_bit1),UVM_HIGH);
+
+    if(cfg_h.stop2) begin
 
       repeat(cfg_h.cycles_per_bit)
         @(posedge uart_vif.PCLK);
+
+      xtn.stop_bit2 = sample_line();
+
+      `uvm_info("UART_MON",$sformatf("Sampled STOP[1] = %0b",xtn.stop_bit2), UVM_HIGH);
+    end
+    else begin
+      xtn.stop_bit2 = 1'b1;
+    end
 
   endtask
 
