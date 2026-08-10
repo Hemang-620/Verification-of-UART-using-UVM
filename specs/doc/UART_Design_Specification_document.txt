@@ -1,0 +1,1131 @@
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+APB UART CORE
+--------------------------------------------------------------------------------
+Design Specification
+                                       
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+VERSION HISTORY
+
+                                   Version
+#
+                                  Implemented
+                                      By
+                                   Revision
+                                     Date
+                                   Approved
+                                      By
+                                   Approval
+                                     Date
+                                    Version
+                                      0.1
+P. Prem Kumar
+
+
+
+Initial Draft Version  - Ver1.0
+                                       
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONTENT
+1.INTRODUCTION.........................................................................................4
+	1.1Features...........................................................................................4
+	1.2 IO Ports..........................................................................................4
+2.ARCHITECTURE DESIGN............................................................................5
+	2.1 Block Diagram..................................................................................5
+	2.2 Functional Description........................................................................5
+		2.2.1 AMBA APB Interface............................................................. 5
+		2.2.2 Register Block.......................................................................6
+		2.2.3 Baud Rate Generator..............................................................6
+		2.2.4 TX IFO...............................................................................7
+		2.2.5 RX FIFO.............................................................................7
+           		2.2.6 Transmit Logic.....................................................................7
+		2.2.7 Receiver Logic......................................................................8
+3 REGISTER CONFIGURATION.....................................................................8
+	3.1 UARTDR.......................................................................................8
+	3.2 UARTRSR/UARTECR......................................................................9
+	3.3 USRTFR........................................................................................10
+	3.4 USRTIBRD.....................................................................................10
+	3.5 USRTFBRD....................................................................................11
+	3.6 UARTLCR_H..................................................................................11
+	3.7 UARTCR.......................................................................................12
+	3.8 UARTIFLS.....................................................................................12
+	3.9  UARTIMSC...................................................................................13
+	3.10 UARTRIS.....................................................................................14
+	3.11 UARTMIS....................................................................................14
+	3.12  UARTICR....................................................................................15
+4.OPERATION.............................................................................................16
+	4.1 Data Transmission............................................................................16
+	4.2 Data Reception.................................................................................16
+	4.3 Loopback........................................................................................17
+5. Appendix A: References.................................................................................17
+1. INTRODUCTION
+1.1 Features
+      The UART provides:
+ Compliance to the AMBA Specification (Rev 2.0) onwards for easy integration into SoC implementation.
+ Separate 32x8 transmit and 32x12 receive First-In, First-Out (FIFO) memory buffers to reduce CPU interrupts
+ Programmable FIFO disabling for 1-byte depth.
+ Supports start, stop, and parity bits for asynchronous communication.
+ Independent masking of transmit FIFO, receive FIFO, and receive timeout and error condition interrupts.
+         
+1.2 IO Ports 
+
+                                     Name
+                                     Type
+                              Source/Destination
+                                  Description
+                                     PCLK
+                                     Input
+                                   APB slave
+APB clock used for all bus transactions.
+                                    PRESETn
+                                     Input
+                               Reset controller
+Active-low reset signal.
+                                     PSEL
+                                     Input
+                                   APB slave
+APB peripheral select signal.
+                                    PENABLE
+                                     Input
+                                   APB slave
+APB enable signal for transfer.
+                                    PWRITE
+                                     Input
+                                   APB slave
+Read/Write control (HIGH for write, LOW for read).
+                                  PADDR[9:0]
+                                     Input
+                                   APB slave
+APB address bus.
+                                 PWDATA[15:0]
+                                     Input
+                                   APB slave
+APB write data bus.
+                                 PRDATA[15:0]
+                                    Output
+                                   APB slave
+APB read data bus.
+                                    UARTCLK
+                                     Input
+                                Clock generator
+UART reference clock.
+                                    UARTRST
+                                     Input
+                               Reset controller
+UART reset signal to UARTCLK clock domain, active LOW. 
+                                    UARTRXD
+                                     Input
+                                      PAD
+UART receive data (serial input).
+                                    UARTTXD
+                                    Output
+                                      PAD
+UART transmit data (serial output).
+                                  UARTRXINTR
+                                    Output
+                              Interrupt controller
+UART receive FIFO interrupt, active HIGH
+                                  UARTTXINTR
+                                    Output
+                              Interrupt controller
+UART transmit FIFO interrupt, active HIGH
+                                  UARTRTINTR
+                                    Output
+                              Interrupt controller
+UART receive timeout interrupt, active HIGH
+                                   UARTEINTR
+                                    Output
+                              Interrupt controller
+UART error interrupt, active HIGH.
+
+                                       
+2. ARCHITECTURE DESIGN 
+   2.1 BLOCK DIAGRAM
+
+UARTRTINTR
+UARTTXINTR
+UARTEINTR
+
+
+PSLVERR
+PSLVERR
+UART CONTROLLER
+UARTRXD
+FIFO Flag
+UARTTXD
+                                    RX
+FIFO
+                    FIFO status & interrupt generation 
+                              Baud rate
+generator
+Read data [7:0]
+Write data [7:0]
+                                Register block
+Baud rate divisor
+                               Receiver(UART_RX)
+                                    TX
+FIFO
+
+
+                              AMBA APB Interface
+                             (apb_uart_interface)
+Transmitter(UART_TX)
+PCLK
+PRESETn
+PSEL
+PENABLE
+PWrite
+PADDR[31:0]
+PWDATA[31:0]
+PRDATA[31:0]
+PREADY
+
+APB_UART_TOP
+
+                                    APB Bus
+
+
+                              AMBA APB Interface
+                             (apb_uart_interface)
+Transmitter(UART_TX)
+PCLK
+PRESETn
+PSEL
+PENABLE
+PWrite
+PADDR[31:0]
+PWDATA[31:0]
+PRDATA[31:0]
+PREADY
+
+APB_UART_TOP
+
+                                    APB Bus
+		UARTCLK
+UARTRST
+
+2.2 Functional Description
+      2.2.1AMBA APB Interface
+      The AMBA APB interface generates read and write decodes for accesses to status/control registers, and transmit and receive FIFOs.
+ RESET
+         The UART are reset by the global reset signal PRESETn and a block-specific reset signal UARTRST. 
+         In order to avoid serious operational failures, both clock domains of the APB_UART must be reset before any attempt is made to send or receive data on the serial line; that is, it is an illegal operation to reset just one clock domain of the APB_UART without resetting the other clock domain.Each reset signal must be de-asserted synchronously with the corresponding clock signal
+ Clock signals
+         The UART uses primary clock signal, PCLK is Peripheral Clock, and this clock drives the APB interface for read and write operations to the UART registers. It is used by the system to access control, status, data registers through the APB bus.
+     
+      UARTCLK is UART Functional Clock, used internally by the UART for baud rate generation and data transmission/reception. The selected frequency for UARTCLK must support the required baud rate. UARTCLK is sourced from the same clock as PCLK.
+     
+      2.2.2 Register block
+                        The register block stores data written, or to be read across the AMBA APB interface.
+      2.2.3 Baud rate generator
+         The baud rate generator contains free-running counters that generate the internal x16 clocks, Baud16. Baud16 provides timing information for UART transmit and receive control. Baud16 is a stream of pulses with a width of one UARTCLK clock period and a frequency of 16 times the baud rate. 
+ Baud rate calculation
+         The baud rate divisor is a 22-bit number consisting of a 16-bit integer and a 6-bit fractional part. This is used by the baud rate generator to determine the bit period. The fractional baud rate divider enables the use of any clock with a frequency >3.6864MHz to act as UARTCLK, while it is still possible to generate all the standard baud rates.
+      The Baud Rate Divisor has the following relationship to UARTCLK:
+ Baud Rate Divisor = UARTCLK/(16xBaud Rate) = BRDI + BRDF
+         
+            Example of how to calculate the divisor value:
+            If the required baud rate is 115200 and UARTCLK = 100 MHz then:
+      Baud Rate Divisor = (100x10^6) / (16x 115200) = 54.25347
+      This means BRDI = 54 and BRDF = 0.25347.
+      Therefore, fractional part, m = integer ((0.25347x64) +0.5) = 16
+      Generated baud rate divider = 54 + 16/64 = 54.25
+      
+      Generated baud rate = (100x10^6) / (16x54.25) = 115207
+      Error = (115207−115200)/ 115200 x 100 = 0.006%
+      The maximum error using a 6-bit UARTFBRD Register = 1/64x100 = 1.56%. This occurs when m = 1, and the error is cumulative over 64 clock ticks
+      Table: Integer and fractional divisors for typical baud rates when UARTCLK = 100 MHz
+                            Integer Divisor
+(BRDI)
+                              Fractional Part (m)
+                           Required Baud Rate (bps)
+                              Generated Baud Rate
+                                   Error (%)
+                                      13
+                                      36
+                                    460800
+                                    460829
+                                    0.0064
+                                      27
+                                       8
+                                    230400
+                                    230415
+                                    0.0064
+                                      54
+                                      16
+                                    115200
+                                    115207
+                                    0.0064
+                                      81
+                                      24
+                                     76800
+                                     76805
+                                    0.0064
+                                      108
+                                      32
+                                     57600
+                                     57604
+                                    0.0064
+                                      162
+                                      49
+                                     38400
+                                     38399
+                                    -0.0032
+                                      325
+                                      33
+                                     19200
+                                     19200
+                                    0.0016
+                                      434
+                                       2
+                                     14400
+                                     14400
+                                    -0.0008
+                                      651
+                                       3
+                                     9600
+                                     9600
+                                    -0.0008
+      
+      
+      2.2.4 TX FIFO
+      The transmit FIFO is an 8-bit wide, 32 location deep, FIFO memory buffer. CPU data written across the APB interface is stored in the FIFO until read out by the transmit logic. You can disable the transmit FIFO to act like a one-byte holding register.
+      2.2.5 RX FIFO
+      The receive FIFO is a 12-bit wide, 32 location deep, FIFO memory buffer. Received data and corresponding error bits, are stored in the receive FIFO by the receive logic until read out by the CPU across the APB interface. The receive FIFO can be disabled to act like a one-byte holding register.
+ Error bits 
+      Three error bits are stored in bits [10:8] of the receive FIFO, and are associated with a particular character. There is an additional error that indicates an overrun error and this is stored in bit 11 of the receive FIFO.
+      The overrun bit is not associated with the character in the receive FIFO. The overrun error is set when the FIFO is full, and the next character is completely received in the shift register. The data in the shift register is overwritten, but it is not written into the FIFO. When an empty location is available in the receive FIFO, and another character is received, the state of the overrun bit is copied into the receive FIFO along with the received character. The overrun state is then cleared. Table lists the bit functions of the receive FIFO
+                                RX FIFO bit(s)
+                                     Name
+Function
+                                      11
+                                      OE
+Overrun Error  -  Set if new data arrives when FIFO is full (data lost).
+                                      10
+                                      BE
+Break Error  -  Set when UARTRXD is held LOW longer than one frame time.
+                                       9
+                                      PE
+Parity Error  -  Set if received parity does not match expected value.
+                                       8
+                                      FE
+Framing Error  -  Set if stop bit is missing or incorrect.
+                                     [7:0]
+                                     DATA
+Received Data  -  8-bit data received from the serial line.
+      
+      2.2.6 Transmit logic
+      The transmit logic performs parallel-to-serial conversion on the data read from the transmit FIFO. Control logic outputs the serial bit stream beginning with a start bit, data bits with the Least Significant Bit (LSB) first, followed by the parity bit, and then the stop bits according to the programmed configuration in control registers.
+      2.2.7 Receive logic
+      The receive logic performs serial-to-parallel conversion on the received bit stream after a valid start pulse has been detected. Overrun, parity, frame error checking, and line break detection are also performed, and their status accompanies the data that is written to the receive FIFO.
+      
+3. REGISTER CONFIGURATION
+     
+                                 Register Name
+                                    Offset
+                                     Type
+                                     Width
+                                  Description
+UARTDR
+0x000
+                                      R/W
+                                     12/8
+Data Register for transmit/receive data. 
+8 bits for write and 12 bits for read.
+UARTRSR/UARTECR
+0x004
+                                      R/W
+                                      4/0
+Receive Status/Error Clear Register.
+4 bits for write and 0 bits for read.
+UARTFR
+0x018
+                                      RO
+                                       9
+Flag Register, shows FIFO and status flags.
+UARTIBRD
+0x024
+                                      RW
+                                      16
+Integer Baud Rate Register.
+UARTFBRD
+0x028
+                                      RW
+                                       6
+Fractional Baud Rate Register.
+UARTLCR_H
+0x02C
+                                      RW
+                                       8
+Line Control Register, sets data format.
+UARTCR
+0x030
+                                      RW
+                                      16
+Control Register, enables/disables UART.
+UARTIFLS
+0x034
+                                      RW
+                                       6
+Interrupt FIFO Level Select Register.
+UARTIMSC
+0x038
+                                      RW
+                                      11
+Interrupt Mask Set/Clear Register.
+UARTRIS
+0x03C
+                                      RO
+                                      11
+Raw Interrupt Status Register.
+UARTMIS
+0x040
+                                      RO
+                                      11
+Masked Interrupt Status Register.
+UARTICR
+0x044
+                                      WO
+                                      11
+Interrupt Clear Register.
+
+      3.1 UARTDR 
+      The Data Register (UARTDR) is used to hold data that is transmitted or received through the UART interface. It allows reading the received data and writing the data to be transmitted. 
+      For words to be transmitted:
+ If the FIFOs are enabled, data written to this location is pushed onto the transmit FIFO.
+ If the FIFOs are not enabled, data is stored in the transmitter holding register (the bottom word of the transmit FIFO).
+      For received words: 
+ If the FIFOs are enabled, the data byte and the 4-bit status (break, frame, parity, and overrun) is pushed onto the 12-bit wide receiver FIFO.
+ If the FIFOs are not enabled, the data byte and status are stored in the receiving holding register (the bottom word of the receive FIFO).
+
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                       -
+                                    [15:12]
+                                       0
+Reserved. Should be ignored.
+                                      OE 
+                                      RO
+                                     [11]
+                                       0
+Overrun Error. Set to 1 if data is received when the receive FIFO is already full. Cleared when space is available.
+                                      BE 
+                                      RO
+                                     [10]
+                                       0
+Break Error. Set to 1 if a break condition is detected (RX line held LOW longer than full-word time).
+                                      PE 
+                                      RO
+                                      [9]
+                                       0
+Parity Error. Set to 1 if the received data parity does not match configured parity settings.
+                                      FE 
+                                      RO
+                                      [8]
+                                       0
+Framing Error. Set to 1 if the received character does not have a valid stop bit (expected 1, got 0).
+                                     DATA 
+                                      RW
+                                     [7:0]
+                                     0x00
+When writing: data to be transmitted. When reading: received data character.
+         
+      3.2 UARTRSR/UARTECR 
+      The UARTRSR/UARTECR Register is the receive status register/error clear register
+       	Receive status can also be read from the UARTRSR Register. If the status is read from this register, then the status information for break, framing and parity corresponds to the data character read from the Data Register.
+      A write to the UARTECR Register clears the framing, parity, break, and overrun errors. All the bits are cleared to 0 on reset.
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                      RO
+                                    [31:4]
+                                       0
+Reserved. Should be ignored.
+                                      OE 
+                                      RW
+                                      [3]
+                                       0
+Overrun Error. Set if data is received and the RX FIFO is already full. Cleared by writing 1.
+                                      BE 
+                                      RW
+                                      [2]
+                                       0
+Break Error. Set if the received data input was held LOW for longer than a full word transmission time. Cleared by writing 1.
+                                      PE 
+                                      RW
+                                      [1]
+                                       0
+Parity Error. Set if received data parity doesn't match configured parity. Cleared by writing 1.
+                                      FE 
+                                      RW
+                                      [0]
+                                       0
+Framing Error. Set if the received character does not have a valid stop bit. Cleared by writing 1.
+         
+      3.3 UARTFR 
+      The UARTFR Register is the flag register. After reset TXFF, RXFF, and BUSY are 0, and TXFE and RXFE are 1. 
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                      RO
+                                    [15:9]
+                                       0
+Reserved, read as 0, do not modify.
+                                   Reserved
+                                      RO
+                                      [8]
+                                      0 
+Reserved
+                                     TXFE
+                                      RO
+                                      [7]
+                                       1
+Transmit FIFO Empty. 1 when FIFO is empty. Depends on FIFO enable.
+                                     RXFF
+                                      RO
+                                      [6]
+                                       0
+Receive FIFO Full. 1 when FIFO is full. Depends on FIFO enable.
+                                     TXFF
+                                      RO
+                                      [5]
+                                       0
+Transmit FIFO Full. 1 when FIFO is full. Depends on FIFO enable.
+                                     RXFE
+                                      RO
+                                      [4]
+                                       1
+Receive FIFO Empty. 1 when FIFO is empty. Depends on FIFO enable.
+                                     BUSY
+                                      RO
+                                      [3]
+                                       0
+UART Busy. 1 when UART is actively transmitting data (FIFO or shift register).
+                                   Reserved
+                                      RO
+                                      [2]
+                                      0 
+                                   Reserved
+                                   Reserved
+                                      RO
+                                      [1]
+                                      0 
+                                   Reserved
+                                   Reserved
+                                      RO
+                                      [0]
+                                      0 
+                                   Reserved
+      
+      3.4 UARTIBRD 
+      The Integer Baud Rate Register (UARTIBRD) Register is the integer part of the baud rate divisor value. Table lists the register bit assignments.
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                      RO
+                                    [31:16]
+                                       0
+Reserved bits. Should be ignored on reads, and zero on writes.
+                                  BAUD_DIVINT
+                                      RW
+                                    [15:0]
+                                       0
+Integer part of the baud rate divisor for baud clock generation.
+      
+      3.5 UARTFBRD 
+      The UARTFBRD Register is the Fractional Baud Rate Register. This is the fractional part of the baud rate divisor value. Table lists the register bit assignments.
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+Reserved
+                                      RO
+                                    [31:6]
+                                       0
+Reserved. Reads as zero. Should be ignored on write.
+BAUD_DIVFRAC
+                                      RW
+                                     [5:0]
+                                       0
+Fractional part of baud rate divisor. Value between 0 and 63.
+
+      3.6 UARTLCR_H
+      The UARTLCR_H Register is the line control register. This register accesses bits 29 to 22 of the UART Line Control Register, UARTLCR_H.
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                      RW
+                                    [31:8]
+                                       0
+Reserved. Reads as zero. Writes are ignored.
+                                      SPS
+                                      RW
+                                      [7]
+                                       0
+Stick parity select.
+                                    WLEN[1]
+                                      RW
+                                      [6]
+                                       0
+Word length bit 1. Together with bit [5] selects word length.
+                                    WLEN[0]
+                                      RW
+                                      [5]
+                                       0
+Word length bit 0.
+                                      FEN
+                                      RW
+                                      [4]
+                                       0
+FIFO enable. 1 = FIFOs enabled, 0 = FIFOs disabled.
+                                     STP2
+                                      RW
+                                      [3]
+                                       0
+Two stop bits select. 1 = 2 stop bits, 0 = 1 stop bit.
+                                      EPS
+                                      RW
+                                      [2]
+                                       0
+Even parity select. 1 = Even parity, 0 = Odd parity.
+                                      PEN
+                                      RW
+                                      [1]
+                                       0
+Parity enable. 1 = Parity enabled, 0 = Parity disabled.
+                                      BRK
+                                      RW
+                                      [0]
+                                       0
+Send Break:
+1 = Output held LOW continuously
+0 = Normal transmission
+
+      3.7 UARTCR 
+      The UARTCR Register is the control register. All the bits are cleared to 0 on reset except for bits 9 and 8 that are set to 1
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                      RO
+                                    [31:16]
+                                       -
+                   Reserved. Read as zero. Ignore on write.
+                                   Reserved
+                                      RW
+                                     [15]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                     [14]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                     [13]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                     [12]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                     [11]
+                                       1
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                     [10]
+                                       1
+                                   Reserved
+                                      RXE
+                                      RW
+                                      [9]
+                                       0
+          Receive enable. When set, UART receive section is enabled.
+                                      TXE
+                                      RW
+                                      [8]
+                                       0
+         Transmit enable. When set, UART transmit section is enabled.
+                                      LBE
+                                      RW
+                                      [7]
+                                       0
+             Loopback enable. Internal loopback for test purposes.
+                                   Reserved
+                                      RO
+                                     [6:3]
+                                       -
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                      [2]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                      [1]
+                                       0
+                                   Reserved.
+                                    UARTEN
+                                      RW
+                                      [0]
+                                       0
+UART enable. Master enable for UART. Must be set along with TXE/RXE for full operation.
+
+      3.8 UARTIFLS 
+      The UARTIFLS Register is the interrupt FIFO level select register. You can use this register to define the FIFO level that triggers the assertion of UARTTXINTR and UARTRXINTR.
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                      RO
+                                    [15:6]
+                                       0
+Reserved. Should be read as zero.
+                                   RXIFLSEL
+                                      RW
+                                     [5:3]
+                                       0
+Receive interrupt FIFO level select:
+
+
+
+
+000: >= 1/8 full
+
+
+
+
+001: >= 1/4 full
+
+
+
+
+010: >= 1/2 full (default)
+
+
+
+
+011: >= 3/4 full
+
+
+
+
+100: >= 7/8 full
+
+
+
+
+101-111: Reserved
+                                   TXIFLSEL
+                                      RW
+                                     [2:0]
+                                       0
+Transmit interrupt FIFO level select:
+
+
+
+
+000: <= 1/8 full
+
+
+
+
+001: <= 1/4 full
+
+
+
+
+010: <= 1/2 full (default)
+
+
+
+
+011: <= 3/4 full
+
+
+
+
+100: <= 7/8 full
+
+
+
+
+101-111: Reserved
+
+      3.9 UARTIMSC 
+      The UARTIMSC Register is the interrupt mask set/clear register. It is a read/write register. On a read this register returns the current value of the mask on the relevant interrupt. 
+      On a write of 1 to the particular bit, it sets the corresponding mask of that interrupt. A write of 0 clears the corresponding mask.
+       All the bits are cleared to 0 when reset. Table lists the register bit assignments
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                      RO
+                                    [15:11]
+                                       0
+Reserved, read as zero, do not modify.
+                                     OEIM
+                                      RW
+                                     [10]
+                                       0
+Overrun error interrupt mask. Masks the overrun error interrupt (UARTOEINTR).
+                                     BEIM
+                                      RW
+                                      [9]
+                                       0
+Break error interrupt mask. Masks the break error interrupt (UARTBEINTR).
+                                     PEIM
+                                      RW
+                                      [8]
+                                       0
+Parity error interrupt mask. Masks the parity error interrupt (UARTPEINTR).
+                                     FEIM
+                                      RW
+                                      [7]
+                                       0
+Framing error interrupt mask. Masks the framing error interrupt (UARTFEINTR).
+                                     RTIM
+                                      RW
+                                      [6]
+                                       0
+Receive timeout interrupt mask. Masks the receive timeout interrupt (UARTRTINTR).
+                                     TXIM
+                                      RW
+                                      [5]
+                                       0
+Transmit interrupt mask. Masks transmit interrupt (UARTTXINTR).
+                                     RXIM
+                                      RW
+                                      [4]
+                                       0
+Receive interrupt mask. Masks receive interrupt (UARTRXINTR).
+                                   Reserved
+                                      RW
+                                      [3]
+                                       0
+Reserved.
+                                   Reserved
+                                      RW
+                                      [2]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                      [1]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RW
+                                      [0]
+                                       0
+                                   Reserved.
+      
+      3.10 UARTRIS 
+      The UARTRIS Register is the raw interrupt status register. It is a read-only register. This register returns the current raw status value, prior to masking, of the corresponding interrupt. A write has no effect.
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                     RO 
+                                    [15:11]
+                                      0 
+Reserved, read as zero, do not modify
+                                    OERIS 
+                                      RO
+                                     [10]
+                                       0
+Overrun error raw interrupt status. Returns the raw interrupt state of the UARTOEINTR interrupt.
+                                     BERIS
+                                      RO
+                                      [9]
+                                       0
+Break error raw interrupt status. Returns the raw interrupt state of the UARTBEINTR interrupt.
+                                     PERIS
+                                      RO
+                                      [8]
+                                       0
+Parity error raw interrupt status. Returns the raw interrupt state of the UARTPEINTR interrupt.
+                                     FERIS
+                                      RO
+                                      [7]
+                                       0
+Framing error raw interrupt status. Returns the raw interrupt state of the UARTFEINTR interrupt.
+                                     RTRIS
+                                      RO
+                                      [6]
+                                       0
+Receive timeout raw interrupt status. Returns the raw interrupt state of the UARTRTINTR interrupt. 
+                                     TXRIS
+                                      RO
+                                      [5]
+                                       0
+Transmit raw interrupt status. Returns the raw interrupt state of the UARTTXINTR interrupt.
+                                     RXRIS
+                                      RO
+                                      [4]
+                                       0
+Receive raw interrupt status. Returns the raw interrupt state of the UARTRXINTR interrupt.
+                                    Reserved
+                                      RO
+                                      [3]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RO
+                                      [2]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RO
+                                      [1]
+                                       0
+                                   Reserved.
+                                    Reserved
+                                      RO
+                                      [0]
+                                       0
+                                   Reserved.
+      
+      3.11 UARTMIS 
+      The UARTMIS Register is the masked interrupt status register. It is a read-only register. This register returns the current masked status value of the corresponding interrupt. A write has no effect
+                                     Name
+                                    Access
+                                     Bits
+                                     Reset
+                                  Description
+                                   Reserved
+                                     RO 
+                                    [15:11]
+                                      0 
+Reserved, read as zero, do not modify
+                                     OEMIS
+                                      RO
+                                     [10]
+                                       0
+Overrun error masked interrupt status
+                                     BEMIS
+                                      RO
+                                      [9]
+                                       0
+Break error masked interrupt status
+                                     PEMIS
+                                      RO
+                                      [8]
+                                       0
+Parity error masked interrupt status
+                                     FEMIS
+                                      RO
+                                      [7]
+                                       0
+Framing error masked interrupt status
+                                     RTMIS
+                                      RO
+                                      [6]
+                                       0
+Receive timeout masked interrupt status
+                                     TXMIS
+                                      RO
+                                      [5]
+                                       0
+Transmit masked interrupt status
+                                     RXMIS
+                                      RO
+                                      [4]
+                                       0
+Receive masked interrupt status
+                                   Reserved
+                                      RO
+                                      [3]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RO
+                                      [2]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RO
+                                      [1]
+                                       0
+                                   Reserved.
+                                   Reserved
+                                      RO
+                                      [0]
+                                       0
+                                   Reserved.
+
+      3.12 UARTICR 
+      The UARTICR Register is the interrupt clear register and is write-only. On a write of 1, the corresponding interrupt is cleared. A write of 0 has no effect. Table lists the register bit assignments.
+                                     Name
+                                    Access
+                                     Bits
+                                  Reset Value
+                                  Description
+                                   Reserved
+                                       -- 
+                                    [15:11]
+                                       -- 
+Reserved. Read as zero. Do not modify.
+                                     OEIC
+                                      WO
+                                     [10]
+                                       -- 
+Overrun Error Interrupt Clear  -  Clears the UARTOEINTR interrupt.
+                                     BEIC
+                                      WO
+                                      [9]
+                                       -- 
+Break Error Interrupt Clear  -  Clears the UARTBEINTR interrupt.
+                                     PEIC
+                                      WO
+                                      [8]
+                                       -- 
+Parity Error Interrupt Clear  -  Clears the UARTPEINTR interrupt.
+                                     FEIC
+                                      WO
+                                      [7]
+                                       -- 
+Framing Error Interrupt Clear  -  Clears the UARTFEINTR interrupt.
+                                     RTIC
+                                      WO
+                                      [6]
+                                       -- 
+Receive Timeout Interrupt Clear  -  Clears the UARTRTINTR interrupt.
+                                     TXIC
+                                      WO
+                                      [5]
+                                       -- 
+Transmit Interrupt Clear  -  Clears the UARTTXINTR interrupt.
+                                     RXIC
+                                      WO
+                                      [4]
+                                       -- 
+Receive Interrupt Clear  -  Clears the UARTRXINTR interrupt.
+                                   Reserved
+                                      WO
+                                      [3]
+                                       -- 
+                                   Reserved.
+                                   Reserved
+                                      WO
+                                      [2]
+                                       -- 
+                                   Reserved.
+                                   Reserved
+                                      WO
+                                      [1]
+                                       -- 
+                                   Reserved.
+                                   Reserved
+                                      WO
+                                      [0]
+                                       -- 
+                                   Reserved.
+      
+      Note: Reset Value: Not applicable; writing 1 clears the interrupt; writing 0 has no effect.
+4. OPERATION
+      The operation of the UART is described in the following sections:
+      Control data is written to the UART Line Control Register, UARTLCR_H. This register is 30-bits wide internally, but is externally accessed through the APB interface by writes to the following registers:
+      UARTCR: Control Register  --  enables UART and flow control.
+      UARTLCR_H: set the
+                transmission parameters
+                word length
+                buffer mode
+                number of transmitted stop bits
+                parity mode
+                Break generation.
+      UARTIBRD: Defines the integer baud rate divider 
+      UARTFBRD: Defines the fractional baud rate divider
+      4.1 Data transmission
+      Data received or transmitted is stored in two 32-byte FIFOs, though the receive FIFO has an extra four bits per character for status information.
+      For transmission, data is written into the transmit FIFO. If the UART is enabled, it causes a data frame to start transmitting with the parameters indicated in the Line Control Register. Data continues to be transmitted until there is no data left in the transmit FIFO. The BUSY signal goes HIGH as soon as data is written to the transmit FIFO (that is, the FIFO is non-empty) and remains asserted HIGH while data is being transmitted. BUSY is negated only when the transmit FIFO is empty, and the last character has been transmitted from the shift register, including the stop bits. BUSY can be asserted HIGH even though the UART might no longer be enabled.
+      4.2 Data reception 
+      When the receiver is idle (UARTRXD continuously 1, in the marking state) and a LOW is detected on the data input (a start bit has been received), the receive counter, with the clock enabled by Baud16, begins running and data is sampled on the eighth cycle of that counter in UART mode.
+      The start bit is valid if UARTRXD is still LOW on the eighth cycle of Baud16, otherwise a false start bit is detected and it is ignored.
+      If the start bit was valid, successive data bits are sampled on every 16th cycle of Baud16 (that is, one bit period later) according to the programmed length of the data characters. The parity bit is then checked if parity mode was enabled.
+            
+      4.3 Loopback 
+      You can perform loopback testing for UART data by setting the Loop Back Enable (LBE) bit to 1 in the Control Register. Data transmitted on UARTTXD is received on the UARTRXD input.
+5. Appendix A: References
+
+                           Document Name and Version
+                                  Description
+                                   Location
+PrimeCell UART (PL011) Revision: r1p5
+APB UART (PL011) Revision: r1p5
+DDI0183G_uart_pl011_r1p5_trm (2).pdf
+APB UART basic source RTL
+Source base is from GIT Hub
+https://github.com/Ahmed-Khaled24/APB-UART-GPIO/tree/main/components/UART
+Simple UART Basic source code in VHDL
+Simple UART implementation in VHDL from GITHub
+UART/vhdl/uart_simple.vhd at master · Domipheus/UART
+
+
