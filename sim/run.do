@@ -63,7 +63,7 @@ vlog -sv $INC ../tb/tb_top.sv
 # Launch Simulation
 #-----------------------------------------------------------
 
-vsim -debugDB work.tb_top +UVM_TESTNAME=loopback_test -voptargs="+acc"
+vsim -debugDB work.tb_top +UVM_TESTNAME=uart_rx_interrupt_test -voptargs="+acc"
 
 run 0
 
