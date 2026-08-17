@@ -6,7 +6,7 @@
 //=========================================================
 
 `define UARTDR        32'h000
-`define UARTRSR       32'h004
+//`define UARTRSR       32'h004
 `define UARTECR       32'h004
 `define UARTFR        32'h018
 `define UARTIBRD      32'h024

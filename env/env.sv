@@ -52,6 +52,8 @@ class env extends uvm_env;
     ral_h     = cfg_h.ral_h;
    adapter_h = cfg_h.adapter_h;
 
+   ral_h.print();
+
   endfunction
 
 

@@ -7,6 +7,7 @@ class uart_reg_block extends uvm_reg_block;
   //-----------------------------------------
 
   uart_dr_reg      UARTDR;
+  uart_ecr_reg     UARTECR;
   uart_ibrd_reg    UARTIBRD;
   uart_fbrd_reg    UARTFBRD;
   uart_lcr_h_reg   UARTLCR_H;
@@ -43,10 +44,23 @@ class uart_reg_block extends uvm_reg_block;
     // UARTDR
     //------------------------------------------------
 
+    `uvm_info("ECR_DEBUG",
+          ">>> ADDING UARTECR TO RAL MAP <<<",
+          UVM_NONE)
+
     UARTDR = uart_dr_reg::type_id::create("UARTDR");
     UARTDR.build();
     UARTDR.configure(this);
     default_map.add_reg(UARTDR,'h000,"RW");
+
+    //------------------------------------------------
+    // UARTECR
+    //------------------------------------------------
+
+    UARTECR = uart_ecr_reg::type_id::create("UARTECR");
+    UARTECR.build();
+    UARTECR.configure(this);
+    default_map.add_reg(UARTECR, 'h004, "WO");
 
     //------------------------------------------------
     // UARTFR
@@ -138,6 +152,7 @@ class uart_reg_block extends uvm_reg_block;
     UARTICR.configure(this);
     default_map.add_reg(UARTICR,'h044,"WO");
 
+    lock_model();
   endfunction
 
 endclass

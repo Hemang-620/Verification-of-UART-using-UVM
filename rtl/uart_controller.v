@@ -182,7 +182,7 @@ end
     );
 
     // RX FIFO      //depth_changed to 4 for testing rohit
-   fifo #(.DATA_WIDTH(12), .DEPTH(2)) rx_fifo_inst (
+   fifo #(.DATA_WIDTH(12), .DEPTH(8)) rx_fifo_inst (
       .clk(clk),
         .rst_n(rst_n),
         .write_en(rx_fifo_write_en),

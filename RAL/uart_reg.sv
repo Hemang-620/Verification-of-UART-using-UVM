@@ -27,6 +27,35 @@ class uart_dr_reg extends uvm_reg;
   endfunction
 endclass
 
+class uart_ecr_reg extends uvm_reg;
+
+  `uvm_object_utils(uart_ecr_reg)
+
+  uvm_reg_field error_clear;
+
+  function new(string name="uart_ecr_reg");
+    super.new(name, 16, UVM_NO_COVERAGE);
+  endfunction
+
+  virtual function void build();
+
+    error_clear = uvm_reg_field::type_id::create("error_clear");
+    error_clear.configure(
+      this,
+      4,         // size
+      0,         // lsb
+      "WO",
+      0,
+      4'h0,
+      1,
+      0,
+      0
+    );
+
+  endfunction
+
+endclass
+
 
 class uart_ibrd_reg extends uvm_reg;
 

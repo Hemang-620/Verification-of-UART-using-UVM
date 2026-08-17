@@ -43,6 +43,7 @@ package test_pkg;
   `include "uart_register_write_read_vseq.sv"
   `include "uart_tx_interrupt_vseq.sv"
   `include "uart_rx_interrupt_vseq.sv"
+  `include "uart_parity_error_vseq.sv"
   //---------------------------------------------------------
   // Tests
   //---------------------------------------------------------
@@ -58,4 +59,5 @@ package test_pkg;
   `include "uart_register_write_read_test.sv"
   `include "uart_tx_interrupt_test.sv"
   `include "uart_rx_interrupt_test.sv"
+  `include "uart_parity_error_test.sv"
 endpackage

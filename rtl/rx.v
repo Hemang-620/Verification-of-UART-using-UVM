@@ -139,9 +139,9 @@ begin
                 r_Clk_Count <= 0;
 
                 if(i_Even_Parity)
-                    o_RX_Errs[1] <= (i_RX_Serial != ~r_Parity_Calc);
-                else
                     o_RX_Errs[1] <= (i_RX_Serial != r_Parity_Calc);
+                else
+                    o_RX_Errs[1] <= (i_RX_Serial != ~r_Parity_Calc);
 
                 state <= s_RX_Stop_Bit;
             end

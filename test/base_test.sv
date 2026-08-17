@@ -35,7 +35,7 @@ class base_test extends uvm_test;
 
     ral_h = uart_reg_block::type_id::create("ral_h");
     ral_h.build();
-    ral_h.lock_model();
+    //ral_h.lock_model();
     ral_h.reset();
 
     adapter_h = uart_adapter::type_id::create("adapter_h");
