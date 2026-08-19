@@ -63,7 +63,7 @@ vlog -sv $INC ../tb/tb_top.sv
 # Launch Simulation
 #-----------------------------------------------------------
 
-vsim -debugDB work.tb_top +UVM_TESTNAME=basic_tx_test -voptargs="+acc"
+vsim -debugDB work.tb_top +UVM_TESTNAME=uart_parity_error_test -voptargs="+acc"
 
 run 0
 

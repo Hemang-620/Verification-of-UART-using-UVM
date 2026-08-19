@@ -91,20 +91,6 @@ class uart_parity_error_vseq extends base_virtual_sequence;
 
   endtask
 
-
-
-  //------------------------------------------------------------
-  // Read UARTDR
-  //
-  // RX FIFO format:
-  //
-  // [11] OE
-  // [10] BE
-  // [9]  PE
-  // [8]  FE
-  // [7:0] DATA
-  //------------------------------------------------------------
-
   task automatic read_uartdr(output uvm_reg_data_t data);
 
     uvm_status_e status;
@@ -122,16 +108,6 @@ class uart_parity_error_vseq extends base_virtual_sequence;
 
   endtask
 
-
-
-  //------------------------------------------------------------
-  // Clear parity error
-  //
-  // UARTECR[1] = PE
-  //
-  // Writing 1 clears parity error.
-  //------------------------------------------------------------
-
    task automatic clear_parity_error();
 
   uvm_status_e status;
@@ -139,17 +115,6 @@ class uart_parity_error_vseq extends base_virtual_sequence;
   `uvm_info(get_type_name(),
     "Clearing parity error using UARTECR[1]",
     UVM_LOW)
-
-//   ecr = p_sequencer.ral_h.get_reg_by_name("UARTECR");
-
-  if (p_sequencer.ral_h.UARTECR == null) begin
-    `uvm_fatal("RAL",
-      "UARTECR NOT FOUND IN RAL BLOCK")
-  end
-
-//   `uvm_info("RAL",
-//     $sformatf("Found register: %s", ecr.get_full_name()),
-//     UVM_LOW)
 
   p_sequencer.ral_h.UARTECR.write(status, 16'h0002);
 
@@ -204,42 +169,12 @@ endtask
     p_sequencer.uart_cfg_h.calculate_timing();
 
 
-
-    //----------------------------------------------------------
-    // Configure UART
-    //
-    // 8 data bits
-    // EVEN parity
-    // Parity ENABLED
-    // 1 stop bit
-    // FIFO ENABLED
-    //
-    // UARTLCR_H = 0x76
-    //
-    // bit[6:5] = 11 -> 8 bit
-    // bit[4]   = 1  -> FIFO enable
-    // bit[2]   = 1  -> EVEN parity
-    // bit[1]   = 1  -> parity enable
-    //----------------------------------------------------------
-
     `uvm_info(get_type_name(),
       "Configuring UART LCR_H for EVEN parity",
       UVM_LOW)
 
     p_sequencer.ral_h.UARTLCR_H.write(status, 16'h0076);
 
-
-
-    //----------------------------------------------------------
-    // Enable UART + RX
-    //
-    // UARTCR:
-    //
-    // UARTEN = bit[0] = 1
-    // RXE    = bit[9] = 1
-    //
-    // 0x201
-    //----------------------------------------------------------
 
     `uvm_info(get_type_name(),
       "Enabling UART RX",
@@ -248,26 +183,12 @@ endtask
     p_sequencer.ral_h.UARTCR.write(status, 16'h0201);
 
 
-
-    //----------------------------------------------------------
-    // Enable ONLY parity error interrupt
-    //
-    // UARTIMSC[8] = PEIM
-    //
-    // 0x100
-    //----------------------------------------------------------
-
     `uvm_info(get_type_name(),
       "Enabling parity error interrupt: UARTIMSC[8]",
       UVM_LOW)
 
     p_sequencer.ral_h.UARTIMSC.write(status, 16'h0100);
 
-
-
-    //----------------------------------------------------------
-    // Verify initial error interrupt state
-    //----------------------------------------------------------
 
     `uvm_info(get_type_name(),
       "Checking initial error interrupt state",
@@ -288,33 +209,14 @@ endtask
     end
 
 
-
-    //----------------------------------------------------------
-    // Send frame with WRONG parity
-    //
-    // DUT expects EVEN
-    // VIP sends ODD
-    //----------------------------------------------------------
-
     send_parity_error_frame(8'h55);
 
-
-
-    //----------------------------------------------------------
-    // Allow DUT to update error status
-    //----------------------------------------------------------
 
     repeat(10)
       @(posedge p_sequencer.uart_cfg_h.uart_vif.PCLK);
 
 
-
-    //----------------------------------------------------------
-    // Check error interrupt
-    //----------------------------------------------------------
-
-    error_intr =
-      p_sequencer.uart_cfg_h.uart_vif.UARTEINTR;
+    error_intr = p_sequencer.uart_cfg_h.uart_vif.UARTEINTR;
 
 
     $display("-----------------------------------------------");
@@ -341,16 +243,6 @@ endtask
 
     end
 
-
-
-    //----------------------------------------------------------
-    // Read RIS
-    //
-    // Expected:
-    //
-    // RIS[8] = 1
-    //----------------------------------------------------------
-
     read_ris(ris_data);
 
 
@@ -371,18 +263,6 @@ endtask
     end
 
 
-
-    //----------------------------------------------------------
-    // Read MIS
-    //
-    // MIS[8] = RIS[8] & IMSC[8]
-    //
-    // RIS[8]  = 1
-    // IMSC[8] = 1
-    //
-    // Therefore MIS[8] = 1
-    //----------------------------------------------------------
-
     read_mis(mis_data);
 
 
@@ -402,15 +282,6 @@ endtask
 
     end
 
-
-
-    //----------------------------------------------------------
-    // Read UARTDR
-    //
-    // Expected:
-    //
-    // UARTDR[9] = PE
-    //----------------------------------------------------------
 
     read_uartdr(dr_data);
 
@@ -443,29 +314,13 @@ endtask
     end
 
 
-
-    //----------------------------------------------------------
-    // Clear parity error
-    //
-    // UARTECR[1] = 1
-    //----------------------------------------------------------
-
     clear_parity_error();
 
-
-
-    //----------------------------------------------------------
-    // Allow clear to propagate
-    //----------------------------------------------------------
 
     repeat(5)
       @(posedge p_sequencer.uart_cfg_h.uart_vif.PCLK);
 
 
-
-    //----------------------------------------------------------
-    // Check error interrupt after clear
-    //----------------------------------------------------------
 
     error_intr =
       p_sequencer.uart_cfg_h.uart_vif.UARTEINTR;
@@ -491,12 +346,6 @@ endtask
         UVM_LOW)
 
     end
-
-
-
-    //----------------------------------------------------------
-    // Disable UART
-    //----------------------------------------------------------
 
     p_sequencer.ral_h.UARTCR.write(status, 16'h0000);
 

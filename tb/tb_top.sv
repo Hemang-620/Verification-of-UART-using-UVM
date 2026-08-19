@@ -31,8 +31,8 @@ module tb_top;
 
   apb_if  apb_if_h(PCLK);
   uart_if uart_if_h(PCLK);
-
-  //assign uart_if_h.UARTRXD = uart_if_h.UARTTXD;
+  
+  assign uart_if_h.UARTRXD = uart_if_h.UARTTXD;
 
   //---------------------------------------------------------
   // Reset

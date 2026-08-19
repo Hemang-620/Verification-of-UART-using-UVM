@@ -116,7 +116,11 @@ endtask
   //-----------------------------------------
   // First stop bit
   //-----------------------------------------
-
+  `uvm_info("FRAME_DEBUG",
+  $sformatf("inject_frame_error=%0b, driving stop bit=%0b",
+            cfg_h.inject_frame_error,
+            cfg_h.inject_frame_error ? 1'b0 : 1'b1),
+  UVM_LOW)
   if(cfg_h.inject_frame_error)
       uart_vif.UARTRXD <= 1'b0;
   else
